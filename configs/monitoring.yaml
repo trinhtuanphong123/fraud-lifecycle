@@ -1,0 +1,48 @@
+# Monitoring and retraining settings (M4, M5).
+#
+# The train data covers only about 26 weeks, so monitoring runs weekly.
+# Months are used for presentation only. Thresholds below are initial values
+# for the method comparison, not tuned.
+
+window: week
+reference_weeks: 4         # rolling reference: the 4 weeks before the monitored week
+label_delay_days: 28       # chargebacks arrive weeks after the transaction
+
+psi:
+  n_bins: 10               # quantile bins taken from the reference window
+  epsilon: 1.0e-4          # smoothing for empty bins
+  fixed_threshold: 0.25    # rule-of-thumb alarm, compared against the test-based rule
+  effect_size_threshold: 0.1
+
+categorical:
+  top_categories: 50       # most frequent reference values; the rest are pooled
+  js_effect_threshold: 0.02  # nats; ~20% of mass moving to new values gives ~0.07
+
+null_rate:
+  effect_threshold: 0.10   # absolute change in a block's missing rate
+
+domain_classifier:
+  max_rows: 20000          # rows per side
+  alarm_auc: 0.6
+
+fdr:
+  method: bh               # Benjamini-Hochberg across all monitored features
+  alpha: 0.05
+
+# Tuned in notebook 08 on clean weeks 8, 10, 11, 12, 15, 16 (at most 1 alarm in
+# 10 clean weeks per rule); checked on weeks 17-25, injected drift and the
+# known events. An alarm fires when the statistic is strictly above the value.
+alarm_rules:
+  new_values: 0.058        # share of never-seen values in any categorical column
+  psi_columns: 2.2         # i.e. 3+ numeric columns significant after FDR with PSI > 0.1
+  block_missing: 0.097     # absolute change in a V block's missing rate
+  domain: 0.815            # domain-classifier AUC, columns with |Spearman rho vs time| > 0.1 removed
+  trend_rho: 0.1
+
+retraining:                 # P4 backtest (notebook 09)
+  policies: [never, periodic, drift, weekly]   # weekly = upper bound of what retraining can give
+  launch_week: 12          # weeks 0-11 are history with mature labels
+  label_delays_weeks: [2, 4, 17]   # 17 weeks ~ the 120-day chargeback window
+  period_weeks: 4
+  retrain_cost: 50.0       # assumed cost per retrain, same unit as costs.yaml
+  learning_rate: 0.1       # tuned structure, faster learning rate to keep the replay affordable

@@ -1,0 +1,10 @@
+data/
+mlruns/
+mlartifacts/
+mlflow.db
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.pytest_cache/
+*.parquet

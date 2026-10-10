@@ -1,0 +1,29 @@
+# Cost assumptions for the decision policy (M3). Amounts are in USD, the same
+# unit as TransactionAmt.
+#
+# Every number here is an ASSUMPTION, not a measured value. M3 must report
+# savings across the sensitivity grid below, not only at the default point.
+
+missed_fraud:
+  amount_share: 1.0        # the merchant loses the full transaction amount
+  chargeback_fee: 15.0     # fixed fee per chargeback
+
+false_positive:
+  fixed: 5.0               # support contact or friction cost per wrongly blocked customer
+  margin_share: 0.03       # lost margin if the good customer abandons the purchase
+
+manual_review:             # optional 3-action policy: approve / review / block
+  cost_per_case: 3.0
+  daily_capacity: 200
+  catch_rate: 0.9          # share of reviewed frauds the reviewer stops; reviewers never decline good customers
+
+constraints:
+  # Business assumption: at most 1% of good customers may be declined. The
+  # cost model above leaves out churn and lifetime value; without this cap the
+  # cost-optimal rule declined 6.7% of good customers (method research).
+  max_good_decline_rate: 0.01
+  report_caps: [0.005, 0.01, 0.02]
+
+sensitivity:
+  fp_fixed_grid: [1, 2, 5, 10, 20, 50]
+  margin_share_grid: [0.0, 0.01, 0.03, 0.05, 0.10]

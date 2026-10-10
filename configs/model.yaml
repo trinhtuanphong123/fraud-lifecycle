@@ -1,0 +1,45 @@
+# Modelling settings (M2).
+
+split:                     # weeks are 0-26 (day // 7)
+  valid_start_week: 16     # train = weeks 0-15 (~65%)
+  test_start_week: 20      # valid = weeks 16-19 (~14%), test = weeks 20-26 (~20%)
+
+lgbm:
+  learning_rate: 0.1
+  n_estimators: 5000       # upper bound; early stopping on valid picks the real number
+  min_child_samples: 100
+  subsample: 0.8
+  subsample_freq: 1
+  colsample_bytree: 0.5
+  reg_lambda: 1.0
+  early_stopping_rounds: 100
+  num_leaves_grid: [31, 63, 127]
+  num_leaves: 127          # chosen on the validation weeks in M2
+
+tuned:                     # notebook 06; chosen on weeks 0-19 only, test weeks used once
+  es_protocol: all         # early stopping on every card holder (the "unseen only" protocol lost 0.04 PR-AUC)
+  window: half_life_4      # recency weights, halving every 4 weeks back
+  params:
+    num_leaves: 255
+    min_child_samples: 20
+    colsample_bytree: 0.9
+    subsample: 0.8
+    reg_lambda: 1.0
+    learning_rate: 0.05
+    n_estimators: 10000    # early stopping picked 2,314
+  calibration: platt       # notebook 07, cross-fitted on the validation scoring half
+
+logistic:
+  C: 1.0
+  max_rows: 150000         # dense one-hot + missing indicators do not fit in RAM for all rows
+
+screening:
+  sample_size: 100000      # rows of train used for screening
+  n_bins: 20               # quantile bins for numeric features; NaN gets its own bin
+  n_permutations: 20       # label permutations for the MI null distribution
+  null_quantile: 0.99
+  max_corr: 0.98           # drop a feature if |corr| with an already kept one exceeds this
+
+bootstrap:
+  n_boot: 1000
+  seed: 0
