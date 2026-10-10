@@ -78,6 +78,28 @@ def test_penalty_and_threshold_meet_the_decline_cap():
     assert good_decline_rate(threshold_policy(p, t), y) <= cap
 
 
+def test_expected_good_decline_rate_on_a_hand_example():
+    from fraud.decision import expected_good_decline_rate
+
+    action = np.array([DECLINE, APPROVE, APPROVE, DECLINE])
+    p = np.array([0.8, 0.1, 0.0, 0.5])
+    # declined good customers expected: 0.2 + 0.5 = 0.7, good customers expected: 0.2 + 0.9 + 1 + 0.5 = 2.6
+    assert expected_good_decline_rate(action, p) == pytest.approx(0.7 / 2.6)
+
+
+def test_label_free_penalty_meets_the_expected_cap_and_tracks_the_true_one_when_calibrated():
+    from fraud.decision import expected_good_decline_rate, good_decline_rate, penalty_for_expected_cap
+
+    rng = np.random.default_rng(3)
+    p = rng.beta(0.5, 6, 50_000)
+    y = (rng.random(len(p)) < p).astype(int)   # p is calibrated by construction
+    amount = rng.exponential(100, len(p))
+    lam = penalty_for_expected_cap(p, amount, COSTS, 0.01)
+    action = bayes_policy(p, amount, COSTS, fp_penalty=lam)
+    assert expected_good_decline_rate(action, p) <= 0.01
+    assert good_decline_rate(action, y) == pytest.approx(0.01, abs=0.0015)
+
+
 def test_penalty_is_zero_when_the_cap_already_holds():
     from fraud.decision import penalty_for_cap
 

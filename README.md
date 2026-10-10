@@ -58,6 +58,7 @@ A FastAPI service scores one raw transaction. It returns the calibrated fraud pr
 - **Training-serving parity is tested on real data.** Past-only features computed online match the batch features on 2,000 transactions, and API scores match the offline pipeline on 200 transactions (within 1e-5).
 - **Latency in Docker** on 1,000 real test-period transactions: p50 53 ms, p95 65 ms (declines, which are explained, at p99 ≈ 0.65 s); 424 MiB of memory.
 - The model is registered in MLflow as `fraud-scorer`.
+- **Keeping the 1% cap:** `python -m fraud.serving.cap` resets the penalty weekly from logged probabilities, without labels. In the 15-week replay it held the share of good customers declined at about 1% on average, with the worst week at 1.4% instead of 1.9% (notebook 10).
 
 ```
 uv run python -m fraud.serving.bundle        # build artifacts/bundle from the tuned model, register in MLflow
@@ -82,6 +83,7 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor
 uv run jupyter nbconvert --to notebook --execute --inplace notebooks/07_tuning_decision.ipynb
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=-1 notebooks/08_tuning_monitoring.ipynb
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=-1 notebooks/09_backtest.ipynb   # ~1 h, resumable
+uv run jupyter nbconvert --to notebook --execute --inplace notebooks/10_cap_control.ipynb
 uv run mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
 
@@ -94,7 +96,7 @@ notebooks/    one story per notebook; logic lives in src/
 reports/      data analysis, method research, tuning, backtest and serving reports, figures
 src/fraud/    data.py, profiling.py, analysis.py, features.py, baselines.py, train.py, evaluate.py,
               calibrate.py, decision.py, drift.py, tuning.py, backtest.py, config.py
-src/fraud/serving/   bundle.py, history.py, scorer.py, reasons.py, app.py (FastAPI)
+src/fraud/serving/   bundle.py, history.py, scorer.py, reasons.py, app.py (FastAPI), cap.py (weekly λ update)
 Dockerfile    scoring API image (runtime deps in requirements-serve.txt)
 tests/        leakage and correctness tests
 ```

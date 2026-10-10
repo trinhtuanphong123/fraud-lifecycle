@@ -123,7 +123,8 @@ This gives a **per-transaction** threshold p* = C_FP / (C_FP + C_FN), which depe
 - Break-even cost per retrain is at least $12k, so retrain whenever new labels mature.
 - H3 and H5 are not supported: alarms did not precede performance drops, and drift-triggered retraining needed more retrains than periodic.
 - Drift alarms are kept for investigation (for example, pipeline breaks), not as the trigger.
-- Open items: the decline cap drifts when λ is estimated on two weeks; a 120-day label window prevents any retraining for months.
+- The decline cap drifted when λ was estimated on two labelled weeks (worst week 1.9%). It is now reset weekly by a label-free controller targeting 0.9%: mean realised rate about 1.0%, worst week 1.4%, at about $22–24k over 15 weeks.
+- Open item: a 120-day label window prevents any retraining for months.
 
 **Backtest.** Replay the labelled weeks in order. At each week, only labels older than the delay are available for retraining. Total cost = fraud loss + false-positive cost + retraining cost. Label delays of 4 weeks and a 120-day worst case. The 120-day case leaves few labelled weeks to train on, which is itself a finding about how long a model must survive between retrains (H5).
 

@@ -23,6 +23,11 @@ constraints:
   # cost-optimal rule declined 6.7% of good customers (method research).
   max_good_decline_rate: 0.01
   report_caps: [0.005, 0.01, 0.02]
+  # Weekly label-free controller (notebook 10): λ is reset from last week's
+  # traffic so the *expected* good-customer decline rate hits this target.
+  # Aiming below the cap leaves room for calibration error: the realised mean
+  # was ~1.0% at a 0.9% target in the replay.
+  controller_target: 0.009
 
 sensitivity:
   fp_fixed_grid: [1, 2, 5, 10, 20, 50]

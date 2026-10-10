@@ -87,10 +87,28 @@ Without any model the 15 live weeks cost **$1,907,930** (approve all). The never
 **1. The decline cap drifts.**
 - With models retrained from only two weeks of holdout data, the weekly share of good customers declined ranged from 0.64% to **1.94%**: mean 1.10–1.14% for the retrained policies, 0.94% for never.
 - The penalty λ is estimated on a small calibration half, so it is noisy: $36–$76 across model builds.
-- Fixes to test next:
-  - estimate λ on more weeks;
-  - aim below the hard cap (as in `tuning.md`);
-  - add a weekly feedback control that adjusts λ from the observed decline rate, which needs no fraud labels.
+- Fixed below with a weekly, label-free controller that aims below the hard cap.
+
+**Fix: a label-free λ controller** ([`10_cap_control`](../notebooks/10_cap_control.ipynb), replayed on the same cached models).
+- At the end of each week, the model in force next week scores last week's whole traffic (about 20k transactions).
+- λ is set so the *expected* share of good customers declined, Σ(1−p) over declines / Σ(1−p), hits a target. No labels are needed.
+- In production this is `python -m fraud.serving.cap` run on the API's logged probabilities.
+
+Weekly share of good customers declined, 4-week label delay:
+
+| Policy | λ from calibration half (before): mean / worst week | Controller, target 1.0% | **Controller, target 0.9%** | Extra cost of 0.9% target (15 weeks) |
+|---|---|---|---|---|
+| weekly | 1.10% / **1.88%** | 1.08% / 1.50% | **1.00% / 1.42%** | +$21.8k (12.8k–31.6k) |
+| drift | 1.14% / **1.88%** | 1.08% / 1.50% | **1.00% / 1.42%** | +$24.4k (16.5k–33.5k) |
+| periodic | 1.14% / **1.94%** | 1.07% / 1.50% | **0.99% / 1.42%** | +$24.4k (13.8k–36.9k) |
+| never | 0.94% / 1.18% | 0.99% / 1.42% | 0.91% / 1.31% | +$8.6k (1.3k–15.9k) |
+
+![](figures/cap_control.png)
+
+- **What it fixes:** the systematic overshoot. With a 0.9% target, the realised mean sits at the 1% cap, and the worst week falls from 1.9% to 1.4%. The 0.9% target is now the default (`costs.yaml: controller_target`).
+- **What it costs:** about $22–24k over 15 weeks against $1.05–1.18M of decision cost. That is the price of actually honouring the cap.
+- **What it does not fix:** week-to-week variation. The controller reacts one week late (see weeks 16, 24), and the realised weekly rate still ranges from 0.6% to 1.4% (7–8 of 15 weeks above 1%). It can only steer the *expected* rate, so its accuracy is bounded by calibration error on new traffic; the realised mean ran about 0.08 points above the expected value.
+- **A hard weekly guarantee is not achievable without labels.** The honest business statement is "about 1% on average, rarely above 1.5%". In production the declined transactions are never labelled anyway, so the realised rate can only be estimated, for example from customer complaints or a small random approval sample.
 
 **2. A 120-day label window makes retraining impossible for months.** With 17-week label maturity, no new label arrives within 15 weeks of launch, and every policy equals never. A real deployment needs **faster labels**:
 - the outcomes of manually reviewed transactions (the 3-action rule creates them every day);

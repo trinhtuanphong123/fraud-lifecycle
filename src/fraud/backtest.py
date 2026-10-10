@@ -16,7 +16,8 @@ import pandas as pd
 
 from fraud.calibrate import fit_platt
 from fraud.data import ENTITY_COL, TARGET
-from fraud.decision import (bayes_policy, penalty_for_cap, policy_summary, realized_cost, three_action_policy)
+from fraud.decision import (bayes_policy, penalty_for_cap, penalty_for_expected_cap, policy_summary, realized_cost,
+                            three_action_policy)
 from fraud.evaluate import average_precision
 from fraud.train import fit_lgbm, predict
 from fraud.tuning import group_halves, recency_weights
@@ -87,15 +88,37 @@ def fit_snapshot(df: pd.DataFrame, end: int, features: list[str], lgbm_cfg: dict
     }
 
 
+def controller_penalties(evaluation: pd.DataFrame, snapshots: dict[int, pd.DataFrame], schedule: pd.DataFrame,
+                         costs: dict, target: float) -> dict[int, float]:
+    """λ for each week from the previous week's traffic (label-free controller).
+
+    At the end of week t-1, the model that will be in force in week t scores
+    week t-1's transactions; λ is set so the *expected* good-customer decline
+    rate on them equals `target`. No labels are used, and week t itself is
+    never seen. The first live week has no previous traffic and gets no entry.
+    """
+    out = {}
+    weeks = list(schedule.index)
+    for prev, t in zip(weeks[:-1], weeks[1:]):
+        last = evaluation[evaluation["week"] == prev]
+        s = snapshots[schedule.loc[t, "model_end"]].set_index("TransactionID").loc[last["TransactionID"]]
+        out[t] = penalty_for_expected_cap(s["p"].to_numpy(), last["TransactionAmt"].to_numpy(dtype=float), costs, target)
+    return out
+
+
 def simulate(evaluation: pd.DataFrame, snapshots: dict[int, pd.DataFrame], meta: pd.DataFrame,
-             schedule: pd.DataFrame, costs: dict, rule: str = "bayes") -> tuple[pd.DataFrame, np.ndarray]:
+             schedule: pd.DataFrame, costs: dict, rule: str = "bayes",
+             penalties: dict[int, float] | None = None) -> tuple[pd.DataFrame, np.ndarray]:
     """Apply the decision rule week by week with the model the schedule has in force.
 
     `evaluation` holds the live weeks (TransactionID, week, day, amount, label);
-    `snapshots[end]` holds each model's calibrated scores; `meta` its penalties.
+    `snapshots[end]` holds each model's calibrated scores; `meta` its penalties
+    from the labelled calibration half. `penalties[week]`, if given, overrides
+    the cost rule's penalty for that week (e.g. from `controller_penalties`).
     Returns a weekly summary and the realised cost of every transaction (in
     `evaluation` order), for paired comparisons between policies.
     """
+    penalties = penalties or {}
     cost = np.zeros(len(evaluation))
     rows = []
     for t, row in schedule.iterrows():
@@ -107,12 +130,15 @@ def simulate(evaluation: pd.DataFrame, snapshots: dict[int, pd.DataFrame], meta:
         p, y = s["p"].to_numpy(), week[TARGET].to_numpy()
         amount, day = week["TransactionAmt"].to_numpy(dtype=float), week["day"].to_numpy()
         if rule == "bayes":
-            action = bayes_policy(p, amount, costs, fp_penalty=meta.loc[row["model_end"], "lambda_bayes"])
+            lam = penalties.get(t, meta.loc[row["model_end"], "lambda_bayes"])
+            action = bayes_policy(p, amount, costs, fp_penalty=lam)
         else:
-            action = three_action_policy(p, amount, day, costs, fp_penalty=meta.loc[row["model_end"], "lambda_3action"])
+            lam = meta.loc[row["model_end"], "lambda_3action"]
+            action = three_action_policy(p, amount, day, costs, fp_penalty=lam)
         cost[mask] = realized_cost(action, y, amount, costs)
         summary = policy_summary(action, y, amount, costs)
         rows.append({"week": t, "model_end": row["model_end"], "model_age": t - row["model_end"], "retrain": row["retrain"],
+                     "penalty": float(lam),
                      "cost": summary["total_cost"], "good_customers_declined": summary["good_customers_declined"],
                      "fraud_usd_stopped": summary["fraud_usd_stopped"], "pr_auc": average_precision(y, s["score"].to_numpy()),
                      "n": len(week)})

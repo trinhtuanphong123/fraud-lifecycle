@@ -41,6 +41,23 @@ def test_a_model_never_scores_a_week_it_was_trained_on(policy, delay):
     assert (s["model_end"] < s.index).all()
 
 
+def test_controller_sets_each_week_from_the_previous_week_only():
+    from fraud.backtest import controller_penalties
+
+    evaluation = pd.DataFrame({"TransactionID": range(6), "week": [12, 12, 12, 13, 13, 13],
+                               "TransactionAmt": [100.0] * 6})
+    # week 13's own scores are extreme; the controller must not look at them
+    snapshots = {11: pd.DataFrame({"TransactionID": range(6), "p": [0.05, 0.10, 0.20, 0.99, 0.99, 0.99]})}
+    schedule = pd.DataFrame({"model_end": [11, 11], "retrain": [False, False]}, index=pd.Index([12, 13], name="week"))
+    costs = {"missed_fraud": {"amount_share": 1.0, "chargeback_fee": 15.0},
+             "false_positive": {"fixed": 5.0, "margin_share": 0.0},
+             "manual_review": {"cost_per_case": 3.0, "daily_capacity": 10, "catch_rate": 0.9}}
+    lam = controller_penalties(evaluation, snapshots, schedule, costs, target=0.0)
+    assert set(lam) == {13}                       # no previous traffic for the first week
+    # target 0 on week 12: nothing may be declined, so p=0.20 must fall below the threshold
+    assert 0.2 * 115 <= 0.8 * (5 + lam[13])
+
+
 def test_simulate_uses_the_model_in_force():
     evaluation = pd.DataFrame({"TransactionID": [1, 2], "week": [12, 13], "day": [84, 91],
                                "TransactionAmt": [100.0, 100.0], "isFraud": [1, 1]})

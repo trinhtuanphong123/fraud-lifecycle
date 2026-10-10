@@ -105,6 +105,23 @@ def test_reasons_are_exact_shap_contributions(bundle_dir):
     assert contributions.sum() == pytest.approx(np.log(raw / (1 - raw)), abs=1e-6)
 
 
+def test_weekly_cap_update_writes_a_new_penalty_and_keeps_history(bundle_dir, tmp_path):
+    import json
+    import shutil
+
+    from fraud.decision import bayes_policy, expected_good_decline_rate
+    from fraud.serving.cap import update_penalty
+
+    copy = shutil.copytree(bundle_dir, tmp_path / "bundle")
+    rng = np.random.default_rng(1)
+    p, amount = rng.beta(0.5, 6, 20_000), rng.exponential(100, 20_000)
+    entry = update_penalty(copy, p, amount, target=0.009)
+    decision = json.loads((copy / "decision.json").read_text())
+    assert decision["fp_penalty"] == entry["new"] and len(decision["penalty_history"]) == 1
+    assert expected_good_decline_rate(bayes_policy(p, amount, decision["costs"], fp_penalty=entry["new"]), p) <= 0.009
+    assert load_bundle(copy).fp_penalty == entry["new"]   # the API picks it up on (re)load
+
+
 def test_recording_updates_the_card_history(bundle_dir):
     bundle = load_bundle(bundle_dir)
     scorer = Scorer(bundle, HistoryStore.load(bundle_dir))

@@ -77,6 +77,10 @@ In-process breakdown per call:
 
 **A design change came out of this measurement.** The first version explained every transaction, which took **1.2 s per call**. Reasons are now computed only for **declines**, the decision a customer sees at checkout. Review cases get their reasons when a reviewer opens them (`explain=always`), off the payment path. This took p95 from 680 ms to 65 ms; the p99 is the declines.
 
+## Keeping the decline cap in production
+
+The bundle starts with λ from the labelled calibration half. Every week, `python -m fraud.serving.cap --log <last week's responses>` resets λ from the logged `fraud_probability` and `TransactionAmt`, so the *expected* share of good customers declined equals the 0.9% target. No labels are needed. The previous values are kept in `decision.json → penalty_history`, and the API uses the new λ after a reload. Replayed over 15 weeks, this kept the realised rate at about 1% on average, with the worst week at 1.4% instead of 1.9% ([`backtest.md`](backtest.md)).
+
 ## Limitations
 
 - **The history store lives in memory, in one process.** It starts from the bundle (history up to the end of the training data) and loses what it recorded on restart. Several replicas would need a shared store (for example Redis) with the same semantics. The parity tests define those semantics.

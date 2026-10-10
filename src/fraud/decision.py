@@ -140,23 +140,53 @@ def good_decline_rate(action, y) -> float:
     return float(((action == DECLINE) & (y == 0)).sum() / max((y == 0).sum(), 1))
 
 
-def penalty_for_cap(policy, y, cap: float, tol: float = 1e-3, max_penalty: float = 1e7) -> float:
-    """Smallest Lagrange penalty λ >= 0 with good-customer decline rate <= cap.
+def expected_good_decline_rate(action, p) -> float:
+    """Label-free estimate of the good-customer decline rate from calibrated probabilities.
 
-    `policy(λ)` returns actions; the decline rate falls as λ grows, so λ is
-    found by bisection (on a log scale, since λ can range over decades).
+    A declined transaction is a good customer with probability 1 - p, so the
+    expected number of declined good customers is the sum of (1 - p) over
+    declines, out of an expected sum of (1 - p) good customers in total.
     """
-    if good_decline_rate(policy(0.0), y) <= cap:
+    good = 1.0 - np.asarray(p, dtype=float)
+    return float(good[np.asarray(action) == DECLINE].sum() / good.sum())
+
+
+def penalty_for_rate(policy, rate, cap: float, tol: float = 1e-3, max_penalty: float = 1e7) -> float:
+    """Smallest Lagrange penalty λ >= 0 with rate(policy(λ)) <= cap.
+
+    `policy(λ)` returns actions and `rate(actions)` the quantity to cap; it
+    falls as λ grows, so λ is found by bisection on a log scale (λ can range
+    over decades).
+    """
+    if rate(policy(0.0)) <= cap:
         return 0.0
     low, high = 1e-3, 1.0
-    while good_decline_rate(policy(high), y) > cap:
+    while rate(policy(high)) > cap:
         low, high = high, high * 4
         if high > max_penalty:
             raise ValueError("cap not reachable")
     while high / low > 1 + tol:
         mid = np.sqrt(low * high)
-        low, high = (mid, high) if good_decline_rate(policy(mid), y) > cap else (low, mid)
+        low, high = (mid, high) if rate(policy(mid)) > cap else (low, mid)
     return float(high)
+
+
+def penalty_for_cap(policy, y, cap: float, tol: float = 1e-3, max_penalty: float = 1e7) -> float:
+    """λ meeting the cap on the observed good-customer decline rate (needs labels)."""
+    return penalty_for_rate(policy, lambda a: good_decline_rate(a, y), cap, tol, max_penalty)
+
+
+def penalty_for_expected_cap(p, amount, costs: dict, cap: float) -> float:
+    """λ meeting the cap on the *expected* good-customer decline rate of a batch of traffic (no labels needed).
+
+    Used as a weekly controller: last week's traffic, scored by the model in
+    force, sets next week's λ, so the cap follows the traffic instead of
+    resting on a small labelled calibration sample.
+    """
+    p = np.asarray(p, dtype=float)
+    amount = np.asarray(amount, dtype=float)
+    return penalty_for_rate(lambda l: bayes_policy(p, amount, costs, fp_penalty=l),
+                            lambda a: expected_good_decline_rate(a, p), cap)
 
 
 def threshold_for_cap(score, y, cap: float) -> float:
