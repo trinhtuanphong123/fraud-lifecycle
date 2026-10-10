@@ -38,7 +38,7 @@ Candidate methods, the choice for each sub-problem, and the evidence behind it: 
 
 In short: time-based splits and card-holder bootstrap CIs everywhere; LightGBM with past-only behavioural features (P1); calibrated probabilities and a Bayes cost rule (P2); permutation-null PSI/JS with FDR control, block-level null rates, score drift, CBPE and a domain classifier (P3); a retraining backtest under label delay (P4).
 
-## 4. Results so far
+## 4. Results
 
 | Question | Answer |
 |---|---|
@@ -71,34 +71,39 @@ curl -X POST "localhost:8000/score?explain=always" -H "Content-Type: application
 
 ```
 uv sync
-uv run pytest
-uv run jupyter nbconvert --to notebook --execute --inplace notebooks/00_data_overview.ipynb
-uv run jupyter nbconvert --to notebook --execute --inplace notebooks/00b_problem_data_analysis.ipynb
-uv run jupyter nbconvert --to notebook --execute --inplace notebooks/01_eda_and_time_split.ipynb
-uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=-1 notebooks/02_modeling.ipynb
-uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=-1 notebooks/03_method_scoring.ipynb
-uv run jupyter nbconvert --to notebook --execute --inplace notebooks/04_method_decision.ipynb
-uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=-1 notebooks/05_method_monitoring.ipynb
-uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=-1 notebooks/06_tuning_scoring.ipynb   # ~2 h, resumable
-uv run jupyter nbconvert --to notebook --execute --inplace notebooks/07_tuning_decision.ipynb
-uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=-1 notebooks/08_tuning_monitoring.ipynb
-uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=-1 notebooks/09_backtest.ipynb   # ~1 h, resumable
-uv run jupyter nbconvert --to notebook --execute --inplace notebooks/10_cap_control.ipynb
-uv run mlflow ui --backend-store-uri sqlite:///mlflow.db
+uv run pytest -m "not data"     # 92 tests, ~5 s, no data needed
+uv run pytest                   # + 2 parity tests on the real data (~1 min)
+uv run ruff check src tests
 ```
+
+Notebooks run in file order; each reads files written by earlier ones ([`docs/data_lineage.md`](docs/data_lineage.md)). Run one with:
+
+```
+uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=-1 notebooks/<name>.ipynb
+```
+
+| Notebook | Time | | Notebook | Time |
+|---|---|---|---|---|
+| 00, 00b, 01 data | ~3 min each | | 06 tuning P1 | ~2 h, resumable |
+| 02 modeling | ~25 min | | 07 tuning P2 | ~1 min |
+| 03 method research P1 | ~20 min | | 08 tuning P3 | ~35 min, resumable |
+| 04, 05 method research P2, P3 | ~1 / ~15 min | | 09 backtest | ~1 h, resumable |
+| | | | 10 cap control | ~2 min |
+
+Experiments are tracked in MLflow: `uv run mlflow ui --backend-store-uri sqlite:///mlflow.db`. Run long notebooks one at a time; on a 14 GB machine two at once ran out of memory.
 
 ## Layout
 
 ```
 configs/      cost, monitoring and model settings
-docs/         problem framing, data dictionary, methodology, pre-registered hypotheses
-notebooks/    one story per notebook; logic lives in src/
+docs/         problem framing, data dictionary, methodology, pre-registered hypotheses, data lineage
+notebooks/    00-10, one story each, in research order; logic lives in src/
 reports/      data analysis, method research, tuning, backtest and serving reports, figures
 src/fraud/    data.py, profiling.py, analysis.py, features.py, baselines.py, train.py, evaluate.py,
               calibrate.py, decision.py, drift.py, tuning.py, backtest.py, config.py
 src/fraud/serving/   bundle.py, history.py, scorer.py, reasons.py, app.py (FastAPI), cap.py (weekly λ update)
 Dockerfile    scoring API image (runtime deps in requirements-serve.txt)
-tests/        leakage and correctness tests
+tests/        leakage, correctness and training-serving parity tests (marker `data` = needs the real data)
 ```
 
 ## Roadmap

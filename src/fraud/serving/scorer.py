@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from fraud.calibrate import platt
-from fraud.data import ENTITY_COL, TIME_COL, add_entity_key, add_time_columns
+from fraud.data import TIME_COL, add_entity_key, add_time_columns
 from fraud.decision import DECLINE, bayes_policy, cost_fn, cost_fp
 from fraud.features import PAST_KEYS, add_row_features
 from fraud.serving.bundle import Bundle

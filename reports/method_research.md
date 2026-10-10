@@ -1,5 +1,7 @@
 # Method research: initial results
 
+> **First, untuned pass.** Verdicts marked "to tune" were resolved in [`tuning.md`](tuning.md); the methods in use are summarised in [`docs/methodology.md`](../docs/methodology.md). This report is kept as the record of how each method was chosen.
+
 For each sub-problem in [`docs/problem_framing.md`](../docs/problem_framing.md), several candidate methods were chosen **because of a finding** in [`data_analysis.md`](data_analysis.md) and run once on real data, **without tuning**. This report gives the first results and a verdict per candidate: **chosen**, **to tune**, or **rejected**. Method rationale is in [`docs/methodology.md`](../docs/methodology.md).
 
 | Sub-problem | Notebook | Data |

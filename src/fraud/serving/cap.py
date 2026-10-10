@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -32,7 +32,7 @@ def update_penalty(bundle_dir: Path, p, amount, target: float) -> dict:
     expected = expected_good_decline_rate(bayes_policy(p, amount, decision["costs"], fp_penalty=lam), p)
     decision.setdefault("penalty_history", []).append({
         "previous": decision["fp_penalty"], "new": lam, "target": target, "n_transactions": int(len(p)),
-        "expected_good_decline_rate": expected, "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "expected_good_decline_rate": expected, "updated_at": datetime.now(UTC).isoformat(timespec="seconds"),
     })
     decision["fp_penalty"] = lam
     path.write_text(json.dumps(decision, indent=1))

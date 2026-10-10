@@ -51,6 +51,7 @@ def test_seeded_store_continues_like_one_built_by_replay():
     pd.testing.assert_frame_equal(replay(seeded, df.iloc[cut:]), replay(replayed, df.iloc[cut:]), rtol=1e-6)
 
 
+@pytest.mark.data
 @pytest.mark.skipif(not (PROCESSED_DIR / "train.parquet").exists(), reason="needs the IEEE-CIS data")
 def test_online_features_match_offline_on_real_data():
     """Training-serving skew check: 2,000 real transactions through the online store vs the batch features."""

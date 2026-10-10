@@ -1,46 +1,50 @@
-# Monitoring and retraining settings (M4, M5).
+# Monitoring (P3) and retraining (P4) settings.
 #
-# The train data covers only about 26 weeks, so monitoring runs weekly.
-# Months are used for presentation only. Thresholds below are initial values
-# for the method comparison, not tuned.
+# The labelled data covers only ~26 weeks, so everything runs weekly; each
+# week is compared with the `reference_weeks` weeks just before it.
+#
+# Sections:
+#   psi, categorical, null_rate, domain_classifier, fdr
+#       statistic settings, plus the first, untuned alarm thresholds used in the
+#       method comparison (notebook 05; reports/method_research.md)
+#   alarm_rules   the tuned alarm thresholds in use (notebook 08; reports/tuning.md)
+#   retraining    the P4 replay (notebooks 09-10; reports/backtest.md)
 
-window: week
-reference_weeks: 4         # rolling reference: the 4 weeks before the monitored week
-label_delay_days: 28       # chargebacks arrive weeks after the transaction
+reference_weeks: 4
 
 psi:
   n_bins: 10               # quantile bins taken from the reference window
   epsilon: 1.0e-4          # smoothing for empty bins
-  fixed_threshold: 0.25    # rule-of-thumb alarm, compared against the test-based rule
-  effect_size_threshold: 0.1
+  effect_size_threshold: 0.1   # a column counts only if PSI is also significant after FDR
+  fixed_threshold: 0.25    # rule-of-thumb alarm, kept for the method comparison only
 
 categorical:
   top_categories: 50       # most frequent reference values; the rest are pooled
-  js_effect_threshold: 0.02  # nats; ~20% of mass moving to new values gives ~0.07
+  js_effect_threshold: 0.02  # nats; method comparison only (JS alarmed every week)
 
 null_rate:
-  effect_threshold: 0.10   # absolute change in a block's missing rate
+  effect_threshold: 0.10   # absolute change in a block's missing rate; method comparison only
 
 domain_classifier:
   max_rows: 20000          # rows per side
-  alarm_auc: 0.6
+  alarm_auc: 0.6           # method comparison only
 
 fdr:
-  method: bh               # Benjamini-Hochberg across all monitored features
+  method: bh               # Benjamini-Hochberg across all monitored columns
   alpha: 0.05
 
-# Tuned in notebook 08 on clean weeks 8, 10, 11, 12, 15, 16 (at most 1 alarm in
-# 10 clean weeks per rule); checked on weeks 17-25, injected drift and the
-# known events. An alarm fires when the statistic is strictly above the value.
+# Tuned on clean weeks 8, 10, 11, 12, 15, 16 (at most 1 alarm in 10 clean weeks
+# per rule); checked on weeks 17-25, injected drift and the known events.
+# An alarm fires when the statistic is strictly above the value.
 alarm_rules:
   new_values: 0.058        # share of never-seen values in any categorical column
   psi_columns: 2.2         # i.e. 3+ numeric columns significant after FDR with PSI > 0.1
   block_missing: 0.097     # absolute change in a V block's missing rate
-  domain: 0.815            # domain-classifier AUC, columns with |Spearman rho vs time| > 0.1 removed
+  domain: 0.815            # domain-classifier AUC, columns with |Spearman rho vs time| > trend_rho removed
   trend_rho: 0.1
 
-retraining:                 # P4 backtest (notebook 09)
-  policies: [never, periodic, drift, weekly]   # weekly = upper bound of what retraining can give
+# Policies compared: fraud.backtest.POLICIES (never, periodic, drift, weekly).
+retraining:
   launch_week: 12          # weeks 0-11 are history with mature labels
   label_delays_weeks: [2, 4, 17]   # 17 weeks ~ the 120-day chargeback window
   period_weeks: 4

@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 import pytest
 
@@ -55,7 +54,7 @@ def test_controller_sets_each_week_from_the_previous_week_only():
     lam = controller_penalties(evaluation, snapshots, schedule, costs, target=0.0)
     assert set(lam) == {13}                       # no previous traffic for the first week
     # target 0 on week 12: nothing may be declined, so p=0.20 must fall below the threshold
-    assert 0.2 * 115 <= 0.8 * (5 + lam[13])
+    assert 0.8 * (5 + lam[13]) >= 0.2 * 115
 
 
 def test_simulate_uses_the_model_in_force():

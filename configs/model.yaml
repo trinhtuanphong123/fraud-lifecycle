@@ -1,4 +1,9 @@
-# Modelling settings (M2).
+# Scoring model settings (P1).
+#
+#   lgbm    base configuration used in M2 and the method comparison (notebooks 02-03);
+#           fit_lgbm reads it, and tuning overrides individual parameters
+#   tuned   the configuration in use (notebook 06; reports/tuning.md); the serving
+#           bundle is built from the model trained with it
 
 split:                     # weeks are 0-26 (day // 7)
   valid_start_week: 16     # train = weeks 0-15 (~65%)
@@ -13,8 +18,8 @@ lgbm:
   colsample_bytree: 0.5
   reg_lambda: 1.0
   early_stopping_rounds: 100
-  num_leaves_grid: [31, 63, 127]
-  num_leaves: 127          # chosen on the validation weeks in M2
+  num_leaves_grid: [31, 63, 127]   # searched in M2
+  num_leaves: 127          # M2's choice; the tuned value is under `tuned`
 
 tuned:                     # notebook 06; chosen on weeks 0-19 only, test weeks used once
   es_protocol: all         # early stopping on every card holder (the "unseen only" protocol lost 0.04 PR-AUC)
@@ -27,7 +32,7 @@ tuned:                     # notebook 06; chosen on weeks 0-19 only, test weeks 
     reg_lambda: 1.0
     learning_rate: 0.05
     n_estimators: 10000    # early stopping picked 2,314
-  calibration: platt       # notebook 07, cross-fitted on the validation scoring half
+  calibration: platt       # record of the notebook 07 choice; fraud.serving.bundle always fits Platt
 
 logistic:
   C: 1.0

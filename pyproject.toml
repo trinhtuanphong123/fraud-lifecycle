@@ -23,6 +23,7 @@ dev = [
     "ipykernel>=6",
     "nbconvert>=7",
     "httpx>=0.28.1",
+    "ruff>=0.17.0",
 ]
 
 [build-system]
@@ -34,3 +35,13 @@ packages = ["src/fraud"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "data: needs the IEEE-CIS data in data/ (and the bundle for serving parity); deselect with -m 'not data'",
+]
+
+[tool.ruff]
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["F", "E9", "B", "UP", "I", "SIM"]

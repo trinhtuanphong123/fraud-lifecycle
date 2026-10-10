@@ -16,8 +16,14 @@ import pandas as pd
 
 from fraud.calibrate import fit_platt
 from fraud.data import ENTITY_COL, TARGET
-from fraud.decision import (bayes_policy, penalty_for_cap, penalty_for_expected_cap, policy_summary, realized_cost,
-                            three_action_policy)
+from fraud.decision import (
+    bayes_policy,
+    penalty_for_cap,
+    penalty_for_expected_cap,
+    policy_summary,
+    realized_cost,
+    three_action_policy,
+)
 from fraud.evaluate import average_precision
 from fraud.train import fit_lgbm, predict
 from fraud.tuning import group_halves, recency_weights
@@ -99,7 +105,7 @@ def controller_penalties(evaluation: pd.DataFrame, snapshots: dict[int, pd.DataF
     """
     out = {}
     weeks = list(schedule.index)
-    for prev, t in zip(weeks[:-1], weeks[1:]):
+    for prev, t in zip(weeks[:-1], weeks[1:], strict=True):
         last = evaluation[evaluation["week"] == prev]
         s = snapshots[schedule.loc[t, "model_end"]].set_index("TransactionID").loc[last["TransactionID"]]
         out[t] = penalty_for_expected_cap(s["p"].to_numpy(), last["TransactionAmt"].to_numpy(dtype=float), costs, target)

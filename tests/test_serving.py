@@ -132,6 +132,7 @@ def test_recording_updates_the_card_history(bundle_dir):
     assert after == before + 1
 
 
+@pytest.mark.data
 @pytest.mark.skipif(not (BUNDLE_DIR / "model.txt").exists() or not (PROCESSED_DIR / "scores_tuned.parquet").exists(),
                     reason="needs the real bundle and data")
 def test_api_scores_match_the_offline_pipeline_on_real_data():
