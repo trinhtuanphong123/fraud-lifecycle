@@ -1,4 +1,5 @@
 data/
+artifacts/
 mlruns/
 mlartifacts/
 mlflow.db

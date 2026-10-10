@@ -21,10 +21,20 @@ def _logit(p) -> np.ndarray:
     return np.log(p / (1 - p))
 
 
+def fit_platt_params(score, y) -> tuple[float, float]:
+    """Platt scaling parameters (a, b): p = sigmoid(a * logit(score) + b)."""
+    lr = LogisticRegression(C=1e6).fit(_logit(score).reshape(-1, 1), np.asarray(y))
+    return float(lr.coef_[0, 0]), float(lr.intercept_[0])
+
+
+def platt(score, a: float, b: float) -> np.ndarray:
+    return 1.0 / (1.0 + np.exp(-(a * _logit(score) + b)))
+
+
 def fit_platt(score, y) -> Calibrator:
     """Platt scaling: a logistic regression on the score's log-odds (two parameters)."""
-    lr = LogisticRegression(C=1e6).fit(_logit(score).reshape(-1, 1), np.asarray(y))
-    return lambda s: lr.predict_proba(_logit(s).reshape(-1, 1))[:, 1]
+    a, b = fit_platt_params(score, y)
+    return lambda s: platt(s, a, b)
 
 
 def fit_isotonic(score, y) -> Calibrator:

@@ -51,6 +51,21 @@ In short: time-based splits and card-holder bootstrap CIs everywhere; LightGBM w
 
 All intervals are 95% bootstrap CIs over card holders.
 
+## 5. Serving
+
+A FastAPI service scores one raw transaction. It returns the calibrated fraud probability, the decision under the capped cost rule with the transaction's own threshold, a review suggestion and, for declines, the top-3 reasons from TreeSHAP. Details: [`reports/serving.md`](reports/serving.md).
+
+- **Training-serving parity is tested on real data.** Past-only features computed online match the batch features on 2,000 transactions, and API scores match the offline pipeline on 200 transactions (within 1e-5).
+- **Latency in Docker** on 1,000 real test-period transactions: p50 53 ms, p95 65 ms (declines, which are explained, at p99 ≈ 0.65 s); 424 MiB of memory.
+- The model is registered in MLflow as `fraud-scorer`.
+
+```
+uv run python -m fraud.serving.bundle        # build artifacts/bundle from the tuned model, register in MLflow
+docker build -t fraud-scorer:1.0 . && docker run -p 8000:8000 fraud-scorer:1.0
+curl -X POST "localhost:8000/score?explain=always" -H "Content-Type: application/json" \
+     -d '{"TransactionID": 1, "TransactionDT": 18500000, "TransactionAmt": 250.0, "card1": 9500, "ProductCD": "C"}'
+```
+
 ## Quickstart
 
 ```
@@ -76,9 +91,11 @@ uv run mlflow ui --backend-store-uri sqlite:///mlflow.db
 configs/      cost, monitoring and model settings
 docs/         problem framing, data dictionary, methodology, pre-registered hypotheses
 notebooks/    one story per notebook; logic lives in src/
-reports/      data analysis and method research reports, figures
+reports/      data analysis, method research, tuning, backtest and serving reports, figures
 src/fraud/    data.py, profiling.py, analysis.py, features.py, baselines.py, train.py, evaluate.py,
-              calibrate.py, decision.py, drift.py, config.py
+              calibrate.py, decision.py, drift.py, tuning.py, backtest.py, config.py
+src/fraud/serving/   bundle.py, history.py, scorer.py, reasons.py, app.py (FastAPI)
+Dockerfile    scoring API image (runtime deps in requirements-serve.txt)
 tests/        leakage and correctness tests
 ```
 
@@ -92,7 +109,7 @@ tests/        leakage and correctness tests
 | M3 | Calibration, Bayes-optimal cost policy with a decline-rate cap, cost sensitivity, 3-action policy | done (tuned) |
 | M4 | PSI test + BH-FDR, block null rates, unseen-value share, domain classifier; real and injected drift | done (tuned); CBPE preliminary |
 | M5 | Retraining policy backtest with 2-, 4- and 17-week label delay | done |
-| M6 | FastAPI + SHAP reason codes + Docker + MLflow | |
+| M6 | FastAPI + TreeSHAP reason codes + Docker + MLflow registry, with training-serving parity tests | done |
 
 ## Assumptions and limitations
 
